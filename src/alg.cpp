@@ -1,104 +1,84 @@
 // Copyright 2025 NNTU-CS
 #include <string>
-#include <map>
-#include "tstack.h"
+#include <sstream>
+#include <cctype>
+#include <stack>
 
-int Priority(char op) {
-  switch (op) {
-    case '(':
-      return 0;
-    case ')':
-      return 1;
-    case '+': case '-':
-      return 2
-    case '*': case '/':
-      return 3;
-    default:
-      return -1;
-  }
+int priority(char op) {
+  if (op == '+' || op == '-') return 1;
+  if (op == '*' || op == '/') return 2;
+  return 0;
 }
 
-void Postfix(TStack<char, 100>& stack, std::string& px) {
-  if (!px.empty() && px.back() != ' ') {
-    px += ' ';
-  }
-  px += stack.getTop();
-  stack.pop();
+bool isOperator(char ch) {
+  return ch == '+' || ch == '-' || ch == '*' || ch == '/';
 }
 
+std::string infx2pstfx(const std::string& input) {
+  std::stack<char> stack;
+  std::string result;
 
-std::string infx2pstfx(const std::string& inf) {
-  TStack<char, 100> stack;
-  std::string px;
-  bool Space = false;
-  for (char ch : inf) {
+  for (size_t i = 0; i < input.length(); ++i) {
+    char ch = input[i];
+
     if (isdigit(ch)) {
-      if (Space) {
-        px += ' ';
-        Space = false;
+      while (i < input.length() && isdigit(input[i])) {
+        result += input[i];
+        ++i;
       }
-      px += ch;
+      result += ' ';
+      --i;
     } else if (ch == '(') {
       stack.push(ch);
     } else if (ch == ')') {
-      while (!stack.isEmpty() && stack.getTop() != '(') {
-        Postfix(stack, px);
-      }
-      if (!stack.isEmpty()) {
+      while (!stack.empty() && stack.top() != '(') {
+        result += stack.top();
+        result += ' ';
         stack.pop();
       }
-    } else if (Priority(ch) > 1) {
-      while (!stack.isEmpty() &&
-        Priority(stack.getTop()) >= Priority(ch)) {
-        Postfix(stack, px);
+      if (!stack.empty()) stack.pop();
+    } else if (isOperator(ch)) {
+      while (!stack.empty() && priority(stack.top()) >= priority(ch)) {
+        result += stack.top();
+        result += ' ';
+        stack.pop();
       }
       stack.push(ch);
-      Space = true;
     }
   }
-  while (!stack.isEmpty()) {
-    Postfix(stack, px);
+
+  while (!stack.empty()) {
+    result += stack.top();
+    result += ' ';
+    stack.pop();
   }
-  return px;
+
+  if (!result.empty() && result.back() == ' ') result.pop_back();
+  return result;
 }
 
-int eval(const std::string& pref) {
+int eval(const std::string& postfix) {
   std::stack<int> stack;
-  std::string px;
-  for (char ch : pref) {
-    if (ch == ' ') {
-      if (!px.empty()) {
-        stack.push(std::stoi(px));
-        px.clear();
-      }
-      continue;
-    }
-    if (isdigit(ch)) {
-      px += ch;
-    } else {
-      if (!px.empty()) {
-        stack.push(std::stoi(px));
-        px.clear();
-      }
-      int b = stack.top();
-      stack.pop();
-      int a = stack.top();
-      stack.pop();
-      switch (ch) {
-        case '+':
-          stack.push(a + b);
-          break;
-        case '-':
-          stack.push(a - b);
-          break;
-        case '*':
-          stack.push(a * b);
-          break;
-        case '/':
-          stack.push(a / b);
-          break;
+  std::istringstream iss(postfix);
+  std::string token;
+
+  while (iss >> token) {
+    if (isdigit(token[0]) ||
+        (token[0] == '-' && token.size() > 1 && isdigit(token[1]))) {
+      stack.push(std::stoi(token));
+    } else if (token.size() == 1 && isOperator(token[0])) {
+      if (stack.size() < 2) continue;
+      int b = stack.top(); stack.pop();
+      int a = stack.top(); stack.pop();
+
+      switch (token[0]) {
+        case '+': stack.push(a + b); break;
+        case '-': stack.push(a - b); break;
+        case '*': stack.push(a * b); break;
+        case '/': stack.push(a / b); break;
       }
     }
   }
-  return stack.top();
+
+  return stack.empty() ? 0 : stack.top();
 }
